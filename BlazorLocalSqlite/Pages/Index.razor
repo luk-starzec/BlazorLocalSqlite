@@ -1,0 +1,126 @@
+﻿@page "/"
+@*@inject HttpClient Http*@
+@inject DataSynchronizer DataSynchronizer
+
+<PageTitle>Weather forecast</PageTitle>
+
+<h1>Weather forecast</h1>
+
+<p>This component demonstrates fetching data from local DB</p>
+
+@if (forecasts == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Temp. (C)</th>
+                <th>Temp. (F)</th>
+                <th>Summary</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var forecast in forecasts)
+            {
+                <tr>
+                    <td>@forecast.Date.ToShortDateString()</td>
+                    <td>@forecast.TemperatureC</td>
+                    <td>@forecast.TemperatureF</td>
+                    <td>@forecast.Summary</td>
+                    <td>
+                        <button class="btn-danger" @onclick="()=>RemoveForecast(forecast.Date)">
+                            Remove item
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button class="btn-primary" @onclick="AddForecast">
+        Add item
+    </button>
+}
+
+@code {
+    ClientSideDbContext? db;
+    Random rnd;
+
+    WeatherForecast[]? forecasts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        db = await DataSynchronizer.GetPreparedDbContextAsync();
+        rnd = new Random();
+
+        LoadForecasts();
+
+        //forecasts = await Http.GetFromJsonAsync<WeatherForecast[]>("sample-data/weather.json");
+    }
+
+    void LoadForecasts()
+    {
+        forecasts = db.Forecasts
+            .Select(r => new WeatherForecast
+                {
+                    Date = r.Date,
+                    TemperatureC = r.TemperatureC,
+                    Summary = r.Summary,
+                }).ToArray();
+    }
+
+    async Task AddForecast()
+    {
+        var last = db.Forecasts.OrderBy(r => r.Date).Last();
+
+        var forecast = new Forecast
+            {
+                Date = last.Date.AddDays(1),
+                TemperatureC = GetRandomTemperature(),
+                Summary = GetRandomSummary(),
+            };
+        await db.Forecasts.AddAsync(forecast);
+        await db.SaveChangesAsync();
+
+        LoadForecasts();
+    }
+
+    async Task RemoveForecast(DateTime date)
+    {
+        var item = db.Forecasts.FirstOrDefault(r => r.Date == date);
+        if (item is null)
+            return;
+
+        db.Forecasts.Remove(item);
+        await db.SaveChangesAsync();
+
+        LoadForecasts();
+    }
+
+    int GetRandomTemperature() => rnd.Next(-10, 30);
+
+    string GetRandomSummary()
+    {
+        var summaries = new string[]
+                                {
+             "Freezing",
+             "Bracing",
+             "Balmy",
+             "Chilly",
+                                };
+        return summaries[rnd.Next(summaries.Length)];
+    }
+
+    public class WeatherForecast
+    {
+        public DateTime Date { get; set; }
+        public int TemperatureC { get; set; }
+        public string? Summary { get; set; }
+        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    }
+}
