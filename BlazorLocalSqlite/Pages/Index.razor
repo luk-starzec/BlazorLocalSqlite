@@ -1,6 +1,7 @@
 ﻿@page "/"
 @*@inject HttpClient Http*@
 @inject DataSynchronizer DataSynchronizer
+@implements IDisposable
 
 <PageTitle>Weather forecast</PageTitle>
 
@@ -61,6 +62,11 @@ else
         LoadForecasts();
 
         //forecasts = await Http.GetFromJsonAsync<WeatherForecast[]>("sample-data/weather.json");
+    }
+
+    public void Dispose()
+    {
+        db?.Dispose();
     }
 
     void LoadForecasts()
